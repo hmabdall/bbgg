@@ -15,9 +15,9 @@
 #include <iostream>
 #include <iomanip>
 #include <TString.h>
-#include "external/ExRootAnalysis/ExRootTreeReader.h"
-#include "classes/DelphesClasses.h"
-#include "modules/Delphes.h"
+#include "/home/habdalla/Delphes-3.0.8/classes/DelphesClasses.h"
+#include "/home/habdalla/Delphes-3.0.8/modules/Delphes.h"
+#include "/home/habdalla/Delphes-3.0.8/external/ExRootAnalysis/ExRootTreeReader.h"
 
 void chainMaker(TChain *chain) {
 
@@ -25,7 +25,7 @@ void chainMaker(TChain *chain) {
   //TString run = "s12-zeem20-test-v9";
 
   ifstream ifs;
-  ifs.open("/home/habdalla/Desktop/Delphes-3.0.8/root_files.txt");
+  ifs.open("/home/habdalla/Delphes-3.0.8/root_files.txt");
   assert(ifs.is_open());
   string line;
   while (getline(ifs, line)) {
@@ -38,7 +38,7 @@ void chainMaker(TChain *chain) {
 
       //this option if you haven't downloaded it to hadoop
 	  //chain->Add(TString("/mnt/hadoop/dkralph/powheg/production/HH/dihiggs-bbgg-14tev/")+thing1);
-      chain->Add(TString("/scratch3/habdalla/hi/post-hepmc-files/")+thing1);
+      chain->Add(TString("/scratch3/mhodel/")+thing1);
 
       //this option if you've downloaded it to hadoop
       //chain->Add(TString("/mnt/hadoop/cms/store/user/paus")+catalog+TString("/")+run+TString("/")+filename);
