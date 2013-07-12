@@ -15,6 +15,8 @@
 // Header file for the classes stored in the TTree if any.
 #include <TClonesArray.h>
 #include <TObject.h>
+#include "TRefArray.h"
+#include "TRef.h"
 
 // Fixed size dimensions of array or collections stored in the TTree if any.
 const Int_t kMaxParticle = 24;

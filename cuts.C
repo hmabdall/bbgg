@@ -10,7 +10,7 @@
 #include "TRef.h"
 #include "TLorentzVector.h"
 #include "TParticle.h"
-#include "chainMaker2.hh"
+#include "chainMaker.hh"
 #include "TMathBase.h"
 #include "TLatex.h"
 #include "TString.h"
@@ -18,57 +18,82 @@
 #include "/home/habdalla/Delphes-3.0.8/classes/DelphesClasses.h"
 #include "/home/habdalla/Delphes-3.0.8/modules/Delphes.h"
 #include "/home/habdalla/Delphes-3.0.8/external/ExRootAnalysis/ExRootTreeReader.h"
-
+using namespace std;
 // create the histograms
 //cout << "num that have gotten this far: " << num_gotten_this_far << endl;
 //cout << "press enter to continute: " << endl;	
 //cin.get();
 
-void cuts(){
-	// create a chain of root files
-	//TChain chain("Delphes");
-	//chain.Add(s);
-	//chain.Add(s);
-	TChain *chain = new TChain("Delphes");
-
-	chainMaker(chain);
+void cuts(TString c){
 	
+	// create a chain of root files
+	TChain *chain = new TChain("Delphes");
+	cout << "c is: " << c << endl;
+	// if char c = s this means running cuts on signal
+	if (c == "h"){
+		chainMakerHH(chain);
+		
+		}
+	
+	// if char c = b this means runnign cuts on the background 
+	else if (c == "t" ){
+		chainMakerttH(chain);
+		
+		}
+		
+	else if (c == "z"){
+		cout << "hi der" << endl;
+		chainMakerZH(chain);
+		}
+			
 	//create object of class ExRootTreeReader
 	ExRootTreeReader *treeReader = new ExRootTreeReader(chain);
 	Long64_t numberOfEntries = treeReader->GetEntries();
 	
 	// get pointers to branches that will be used in this macro
 	TClonesArray *branchPhoton = treeReader->UseBranch("Photon");
-    TClonesArray *branchJet = treeReader->UseBranch("Jet");
-    TClonesArray *branchMuon = treeReader->UseBranch("Muon");
-    TClonesArray *branchElectron = treeReader->UseBranch("Electron");
+	TClonesArray *branchJet = treeReader->UseBranch("Jet");
+	TClonesArray *branchMuon = treeReader->UseBranch("Muon");
+	TClonesArray *branchElectron = treeReader->UseBranch("Electron");
 	
-	// create histogram to eventually plot the events that make it past the cuts
-	TH1F *mass_phot_pair_sg = new TH1F("numEvents", "Number of Events that Made Cut", 140, 0, 500);
-	mass_phot_pair_sg->GetXaxis()->SetTitle("M_{gmgm}");
-	mass_phot_pair_sg->GetYaxis()->SetTitle("# Events");	
-	
-	//TH1F *num_photons = new TH1F("numPhoton", "num_photons in event", 100, 0, 5);
-	
-	TH1F *parent_mass_hist = new TH1F("parent_mass", "Apparent Parent Mass of bb Pair", 200, 0, 200);
-	parent_mass_hist->GetXaxis()->SetTitle("M_{bb}");
-	parent_mass_hist->GetYaxis()->SetTitle("# events");	
+	// create two histograms to eventually plot the mass of bb and gmgm in the events that make it past all the cuts	
+	TH1F *parent_mass_hist_bb = new TH1F("parent_mass_hist_bb", "Apparent Parent Mass of bb Pair", 200, 0, 400);
+	TH1F *parent_mass_hist_gmgm = new TH1F("parent_mass_hist_gmgm", "Apparent Parent Mass of GmGm Pair", 200, 0, 200);
 
-	Int_t num_gotten_this_far = 0;
+	parent_mass_hist_bb->GetXaxis()->SetTitle("M_{bb}");
+	parent_mass_hist_bb->GetYaxis()->SetTitle("# events");	
 	
-	Int_t numBless2_cuts = 0;
-	Int_t w_cuts = 0;
-	Int_t bb_isol_cuts = 0;
-	Int_t bb_mass_cuts = 0;
+	parent_mass_hist_gmgm->GetXaxis()->SetTitle("M_{GmGm}");
+	parent_mass_hist_gmgm->GetYaxis()->SetTitle("# events");	
+	
+	// declare and initialize variables that will be printed out in the macro summary
+	
+	// general/other cuts
+	Int_t less_than_two_Bs_cuts = 0;
+	Int_t less_than_two_Gms_cuts = 0;
+	Int_t bgm_isol_cuts = 0;
+
+	// cuts against ttH background/advanced cuts
 	Int_t lepton_cuts = 0;
-	Int_t numPhless2_cuts = 0;
+	Int_t w_cuts = 0;
+	
+	// cuts against ZH background
+	Int_t diHiggs_mass_cuts = 0; // also an "advanced cut"
+		
+	// cuts for HH signal background
 	Int_t gmgm_mass_cuts = 0;
 	Int_t gmgm_isol_cuts = 0;
-	Int_t bgm_isol_cuts = 0;
-	
-	// the event loop
-	for (Int_t jentry = 0; jentry < numberOfEntries; jentry++){
+	Int_t bb_isol_cuts = 0;
+	Int_t bb_mass_cuts = 0;
 
+	// advanced cuts
+	Int_t Higgs_PT_cuts = 0;
+	Int_t Higgs_Eta_cuts = 0;
+	
+	// begin the event loop
+	for (Int_t jentry = 0; jentry < numberOfEntries; jentry++){
+	if (jentry % 5000 == 0){cout << "event no: " << jentry << endl;}
+	
 		treeReader->ReadEntry(jentry);
 		
 		//Instatiate vector of non-btagged jets
@@ -112,11 +137,9 @@ void cuts(){
         } //End of jet loop
         
         // only continue if there are two b-jets in this event
-        if (numBJets < 2) { continue;
-			}
+        if (numBJets < 2) { continue;}
 
-		cout << "this is event: " << jentry << "and there are at least two bjets in this event!" << endl;
-		numBless2_cuts++;
+		less_than_two_Bs_cuts++;
 		
 		//calculate number of non btagged jets
         Int_t numOtros = otrosjets.size();
@@ -125,7 +148,9 @@ void cuts(){
 
 		//Loop over pairs of non btagged jets
         for (Int_t jet1_no = 0; jet1_no < numOtros; jet1_no++) {
+
             for (Int_t jet2_no = jet1_no + 1; jet2_no < numOtros; jet2_no++) {
+
                 //instantiate jet1 and jet 2
                 Jet *jet1 = otrosjets[jet1_no];
                 Jet *jet2 = otrosjets[jet2_no];
@@ -145,20 +170,18 @@ void cuts(){
                 py = py1 + py2;
                 pz = pz1 + pz2;
                 Double_t parent_mass = sqrt(nrg*nrg - px*px - py*py - pz*pz);
-                cout << parent_mass << endl;
                 //check whether parent mass falls within 20GeV window of W
-                if (parent_mass < 90.0 && parent_mass > 70.0) {
-                    wcutfail = true;
-                } //end of parent mass check
+                if (parent_mass < 90.0 && parent_mass > 70.0) {wcutfail = true; } //end of parent mass check
             } //end of jet2 loop
         } //end of jet1 loop
-        //cut the event if it fails the W mass check
-        if (wcutfail) { continue;}
+        
+        if (wcutfail) { continue;} //cut the event if it fails the W mass check
         w_cuts++;
 
-		//initialize bjet_index1 and 2
+	//initialize bjet_index1 and 2
         Int_t BJet_index_1 = 0;
         Int_t BJet_index_2 = 0;
+
         //keep only the 2 most energetic bjets
         if (numBJets > 2) {
             Double_t ptmax1 = 0.0;
@@ -171,6 +194,7 @@ void cuts(){
                     BJet_index_1 = index;
                 }
             }
+
             for (Int_t index = 0; index < numBJets; index++) {
                 Jet *Bjet = demJets[index];
                 Double_t Bjetpt = Bjet->P4().Pt(); 
@@ -189,12 +213,14 @@ void cuts(){
         Jet *bjet1 = demJets[BJet_index_1];
         Jet *bjet2 = demJets[BJet_index_2];
         
+        // create vector for higgs_on_shell_from_BB
+        TLorentzVector Higgs_bb_vec = bjet1->P4() + bjet2->P4();
+        
         //restrict deltaR to be greater than 0.4
         Double_t d1 = pow(bjet1->P4().Eta()-bjet2->P4().Eta(), 2);
         Double_t d2 = pow(bjet1->P4().Phi()-bjet2->P4().Phi(), 2);
         Double_t deltaR = sqrt(d1+d2);
-        if (deltaR < 0.4) { continue;
-        }
+        if (deltaR < 0.4) { continue;}
 		bb_isol_cuts++;
 		
         //cacluate parent mass
@@ -214,7 +240,7 @@ void cuts(){
         Double_t parent_mass = sqrt(nrg*nrg - px*px - py*py - pz*pz);
         
         //restrict parent mass to be within 25 GeV window of higgs
-        parent_mass_hist->Fill(parent_mass);
+        parent_mass_hist_bb->Fill(parent_mass);
         
         if (parent_mass > 150 || parent_mass < 110) { continue;}
 		
@@ -267,7 +293,7 @@ void cuts(){
 								
 			if (numPhotons < 2){continue;}
 			// cut for phtons < 2
-			numPhless2_cuts++;
+			less_than_two_Gms_cuts++;
 			
 			if (numPhotons == 2){
 				index_of_first = 0;
@@ -300,15 +326,14 @@ void cuts(){
 				}
 			}
 			
-			cout << "there are " << numPhotons << " photons in this event" << endl;
-		
-			
 			// create the two photons to be used next
 			Photon *photon1 = luxons[index_of_first];
 			Photon *photon2 = luxons[index_of_second];
-		
-			
-			if (numPhotons >= 3){
+
+			// create vector for higgs_on_shell_from_BB
+			TLorentzVector Higgs_gmgm_vec = photon1->P4() + photon2->P4();
+
+			/*if (numPhotons >= 3){
 				cout << "there are: " << numPhotons << " in this event" << endl;
 				cout << "index_of_first: " << index_of_first << endl;
 				cout << "index_of_second: " << index_of_second << endl;
@@ -321,12 +346,11 @@ void cuts(){
 				//cout << "press enter to continute: " << endl;
 				//cin.get();
 				
-				}
+				}*/
 			
 			 // find the mass of these photons's mothers
 			 double nrg_sum = 0, px_sum = 0, py_sum = 0, pz_sum = 0;
 					
-			
 			// create a lorentz vector for photon 1 
 			Double_t phot_nrg1,phot_px1,phot_py1,phot_pz1;
 			phot_nrg1=photon1->E;
@@ -342,9 +366,8 @@ void cuts(){
 			phot_pz2=photon2->P4().Pz();
 			nrg_sum = phot_nrg1+phot_nrg2, px_sum = phot_px1+phot_px2, py_sum = phot_py1+phot_py2, pz_sum = phot_pz1+phot_pz2;
 			
-			
 			Double_t mass_parent = sqrt((nrg_sum)*(nrg_sum)-(px_sum)*(px_sum)-(py_sum)*(py_sum)-(pz_sum)*(pz_sum));
-			if (parent_mass > 130 || parent_mass < 120){continue;} // skip the event if it's not within range of mass
+			if (mass_parent > 130 || mass_parent < 120){continue;} // skip the event if it's not within range of mass
 			gmgm_mass_cuts++;
 			
 			// find the deltaR between two photons
@@ -374,42 +397,108 @@ void cuts(){
 				} //end of photon loop
 			if (failed_the_isolation) { continue; }
 			bgm_isol_cuts++;		
-				
-		cout << "----------------------------------------------------------" << endl << endl;
+			
+			// find PT of the offshell higgs
+			Double_t Higgs_off_shell_PT = Higgs_gmgm_vec.Pt() + Higgs_bb_vec.Pt();	
+			
+			// make cuts on Higgs PT accordingly
+			if (Higgs_off_shell_PT < 100){continue;} // gets cut
+			Higgs_PT_cuts++;
+			
+			// find the Eta of the offshell higgs
+			Double_t Higgs_off_shell_Eta = Higgs_gmgm_vec.Eta() + Higgs_bb_vec.Eta();
+			
+			// make cuts on Higgs Eta accordingly
+			if (abs(Higgs_off_shell_Eta) > 2){continue;}
+			Higgs_Eta_cuts++;
+			//cout << "higgs_off_shell_Eta: " << abs(Higgs_off_shell_Eta) << endl;
+			
+			// find the mass of the diHiggs
+			Double_t higgs_nrg_bb,higgs_px_bb,higgs_py_bb,higgs_pz_bb;
+			higgs_nrg_bb=Higgs_bb_vec.E();
+			higgs_px_bb=Higgs_bb_vec.Px(); 
+			higgs_py_bb=Higgs_bb_vec.Py();
+			higgs_pz_bb=Higgs_bb_vec.Pz();
+			
+			Double_t higgs_nrg_gmgm,higgs_px_gmgm,higgs_py_gmgm,higgs_pz_gmgm;
+			higgs_nrg_gmgm=Higgs_gmgm_vec.E();
+			higgs_px_gmgm=Higgs_gmgm_vec.Px(); 
+			higgs_py_gmgm=Higgs_gmgm_vec.Py();
+			higgs_pz_gmgm=Higgs_gmgm_vec.Pz();
+		
+			Double_t nrg_sum2 = 0, px_sum2 = 0, py_sum2 = 0, pz_sum2 = 0;
 
-		mass_phot_pair_sg->Fill(mass_parent);
+			nrg_sum2 = higgs_nrg_gmgm+higgs_nrg_bb;
+			px_sum2 = higgs_px_gmgm+higgs_px_bb;
+			py_sum2 = higgs_py_gmgm+higgs_py_bb;
+			pz_sum2 = higgs_pz_gmgm+higgs_pz_bb;
+			
+			
+			Double_t diHiggs_mass = sqrt((nrg_sum2)*(nrg_sum2)-(px_sum2)*(px_sum2)-(py_sum2)*(py_sum2)-(pz_sum2)*(pz_sum2)) ; // parent_mass is from bb, mass_parent is from gmgm
+			
+			//cout << "dihiggs mass cuts: " << diHiggs_mass << endl;
+			
+			// make the cuts on diHiggs mass accordingly
+			if (diHiggs_mass < 350){continue;}
+			diHiggs_mass_cuts++;
+		
+		parent_mass_hist_gmgm->Fill(mass_parent);
 
 				
-	} // enf of event loop
-				cout << "Draw me like one of your french girls" << endl;
-				cout << "num that got this far: " << num_gotten_this_far << endl;
-			//mass_phot_pair_sg->Draw();
-			//lepton_PT_hist->Draw();
-			//lepton_Eta_hist->Draw();
-				//num_photons->Draw();
-				//TCanvas *canvas = new TCanvas("canvas","hi",10,10,1200,700);
-				//canvas->Divide(4,1);
-				//canvas->cd(1);
-				parent_mass_hist->Draw();
-				//canvas->cd(2);
-				//photon_Eta_hist->Draw();
-				//canvas->cd(3);
-				//photon_Phi_hist->Draw();
-				//canvas->cd(4);
-				//photon_delR_hist->Draw();
-			cout << "--------------------------------------------------------" << endl;
-			cout << "SUMMARY: "<< endl;
-			cout << "Number of events: " << numberOfEntries << endl;
-			cout << "Number that made it past numB < 2: " << '\t' <<  numBless2_cuts << endl;
-			cout << "Number that made it past W-cuts: " << '\t' << w_cuts << endl;			
-			cout << "Number that made it past bb_isol_cuts " << '\t' << bb_isol_cuts << endl;
-			cout << "Number that made it past bb_mass_cuts " << '\t' << bb_mass_cuts << endl;
-			cout << "Number that made it past lepton_cuts " << '\t' << lepton_cuts << endl;
-			cout << "Number that made it past numPh < 2 " << '\t' << numPhless2_cuts<< endl;
-			cout << "Number that made it past gmgm_mass_cuts " << gmgm_mass_cuts << endl;
-			cout << "Number that made it past gmgm_isol_cuts " << gmgm_isol_cuts << endl;
-			cout << "Number that made it past bgm_isol_cuts " << '\t' << bgm_isol_cuts << endl;
-			cout << "--------------------------------------------------------" << endl;
+	} // end of event loop
+			
+			// make canvas, draw histograms of mass
+			cout << "hi: " << endl;
+			//TCanvas *canvas = new TCanvas("canvas","Mass of Higgs",10,10,900,600);
+			cout << "hi2: " << endl;
+			//canvas->Divide(2,1);
+			//canvas->cd(1);
+			parent_mass_hist_bb->Draw();
+			//canvas->cd(2);
+			parent_mass_hist_gmgm->Draw();
+			
+			Double_t cross_section = 0;
+			Int_t luminosity = 3000;
+			// print summary of cut results
+			cout << "*******************************************************" << endl;
+			cout << " SUMMARY FOR SAMPLE TYPE: " << endl;
+			if (c == 'h'){cross_section = .0892; cout << "SIGNAL: gg -> HH --> bbgmgm" << endl;}
+			if(c == 't'){cross_section = 1.39; cout << "BACKGROUND: gg --> ttH --> bbWWgmgm" << endl;}
+			if(c == 'z'){cross_section = .333; cout << "BACKGROUND: gg --> ZH --> bbgmgm" << endl;}
+			cout << "*******************************************************" << endl;
+			cout << " Number of events: "  << '\t' << '\t'  << '\t' << numberOfEntries<< endl;
+			cout << " Made the less than two b quarks cuts: " << '\t' <<  less_than_two_Bs_cuts << endl;
+			cout << " Made the W-cuts: " << '\t' << '\t'  << '\t' << w_cuts << endl;
+			cout << " Made the bb isolation cuts: " << '\t' << '\t' << bb_isol_cuts << endl;
+			cout << " Made the bb parent mass cuts: "<< '\t'  << '\t' << bb_mass_cuts << endl;
+			cout << " Made the lepton cuts: " << '\t'<< '\t'  << '\t' << lepton_cuts << endl;
+			cout << " Made the less than two photons cuts: " << '\t' << less_than_two_Gms_cuts << endl;
+			cout << " Made the gmgm parent mass cuts: " << '\t' << gmgm_mass_cuts << endl;
+			cout << " Made the gmgm isolation cuts: " << '\t' << '\t' << gmgm_isol_cuts << endl;
+			cout << " Made the b-gm isolation cuts: " << '\t' << '\t' <<  bgm_isol_cuts << endl;
+			cout << "------------------------------------------------------" << endl;
+			cout << " ADVANCED CUTS: " << endl;
+			cout << "------------------------------------------------------" << endl;
+			cout << " Made the Higgs PT cuts: " << '\t' << '\t'  << Higgs_PT_cuts << endl;
+			cout << " Made the Higgs Eta cuts: " << '\t' << '\t' <<  Higgs_Eta_cuts << endl;
+			cout << " Made the DiHiggs M_{HH} Mass cuts: " << '\t' << diHiggs_mass_cuts << endl;
+			cout << "------------------------------------------------------" << endl;
+			cout << " CALCULATING NUMBER OF EVENTS" << endl;
+			cout << "------------------------------------------------------" << endl;
+			Double_t e_times_a = (double)diHiggs_mass_cuts/numberOfEntries;
+			cout << " With advanced cuts: " << endl;
+			cout << '\t' << "Luminosity: " << '\t' << '\t' << '\t' <<luminosity << " fb"<< endl;			
+			cout << '\t' << "Cross section: " << '\t' << '\t' << '\t' << cross_section << endl;
+			cout << '\t' << "Efficieny * Acceptance: " << '\t'  << e_times_a << endl;
+			cout << '\t' << "B: " << '\t' << '\t' << '\t'  << '\t' << e_times_a * luminosity * cross_section << endl << endl;
+			
+			e_times_a = (double)bgm_isol_cuts/numberOfEntries;
+			cout << " Without advanced cuts: " << endl;
+			cout << '\t' << "Luminosity: " << '\t' << '\t' << '\t' <<luminosity << " fb"<< endl;			
+			cout << '\t' << "Cross section: " << '\t' << '\t' << '\t' << cross_section << endl;
+			cout << '\t' << "Efficieny * Acceptance: " << '\t'  << e_times_a << endl;
+			cout << '\t' << "B: " << '\t' << '\t' << '\t'  << '\t' << e_times_a * luminosity * cross_section << endl;
+ 			cout << "*******************************************************" << endl;
 
 } // end of function
 

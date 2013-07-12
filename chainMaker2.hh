@@ -19,7 +19,7 @@
 #include "/home/habdalla/Delphes-3.0.8/modules/Delphes.h"
 #include "/home/habdalla/Delphes-3.0.8/external/ExRootAnalysis/ExRootTreeReader.h"
 
-void chainMaker(TChain *chain) {
+void chainMaker2(TChain *chain) {
 
   TString catalogDir = "/home/cmsprod/catalog/t2mit";
   TString catalog = "/delphes/309";
