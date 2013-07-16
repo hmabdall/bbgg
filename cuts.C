@@ -199,16 +199,18 @@ void cuts(TString c){
                 Jet *Bjet = demJets[index];
                 Double_t Bjetpt = Bjet->P4().Pt(); 
                 if (Bjetpt > ptmax2) {
-					if (index = BJet_index_1) {continue; }
-                    ptmax2 = Bjetpt;
-                    BJet_index_2 = index;
+		  if (index = BJet_index_1) {continue; }
+                  ptmax2 = Bjetpt;
+                  BJet_index_2 = index;
                 }
             }
         }
+
         else {
             BJet_index_1 = 0;
             BJet_index_2 = 1;
         }
+
         //instantiate the two bjets
         Jet *bjet1 = demJets[BJet_index_1];
         Jet *bjet2 = demJets[BJet_index_2];
@@ -259,8 +261,7 @@ void cuts(TString c){
 				if ((muon->PT > 20) && (abs(muon->Eta) < 2.4)){
 						leptons_bool = 0;
 					}
-					
-			 }
+				 }
 			 
 			 // loop through the electrons
 			 for (int w = 0; w < electron_size; w++){
